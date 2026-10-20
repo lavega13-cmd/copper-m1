@@ -47,14 +47,14 @@ export function ProductsSection() {
               data-product={product.id}
               className="h-full gap-0 py-0 shadow-sm"
             >
-              <div className="bg-secondary px-6 py-8">
+              <div className="bg-secondary px-6 py-6">
                 <Image
                   src={product.cutout}
                   alt={ALT[product.id] ?? `${product.name} ${product.type}`}
                   width={1254}
                   height={1254}
                   sizes="(min-width: 768px) 40vw, 90vw"
-                  className="mx-auto h-auto w-full max-w-sm"
+                  className="mx-auto h-auto w-full max-w-60 lg:max-w-72"
                 />
               </div>
               <CardContent className="flex flex-1 flex-col gap-6 px-6 py-6">
