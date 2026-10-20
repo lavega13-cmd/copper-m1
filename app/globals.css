@@ -48,6 +48,19 @@
 }
 
 /*
+ * Fixed brand colors for the landing page. Unlike the theme tokens below they
+ * do not flip in dark mode (Night Sky hero and footer, swatches). Brand hexes only.
+ */
+@theme {
+  --color-copper: #b87333;
+  --color-patina: #4a8c82;
+  --color-sand: #efe3d0;
+  --color-sunset: #e8663d;
+  --color-night: #1c2333;
+  --color-hardhat: #f2c230;
+}
+
+/*
  * Copper State Labs theme, built from the Product Bible (Section 2).
  * Brand colors:
  *   Copper #B87333 (primary)      Patina Teal #4A8C82 (accent)
@@ -133,6 +146,11 @@
   }
   html {
     @apply font-sans;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
   h1,
   h2,
