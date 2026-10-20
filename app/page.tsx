@@ -2,6 +2,7 @@ import { SiteFooter } from "@/components/copper/site-footer";
 import { SiteHeader } from "@/components/copper/site-header";
 import { Hero } from "@/components/copper/hero";
 import { PlusPricingSection } from "@/components/copper/plus-pricing-section";
+import { PrivacySection } from "@/components/copper/privacy-section";
 import { ProductsSection } from "@/components/copper/products-section";
 import { ShowcaseSection } from "@/components/copper/showcase-section";
 
@@ -14,6 +15,7 @@ export default function Home() {
         <ProductsSection />
         <ShowcaseSection />
         <PlusPricingSection />
+        <PrivacySection />
       </main>
       <SiteFooter />
     </>
