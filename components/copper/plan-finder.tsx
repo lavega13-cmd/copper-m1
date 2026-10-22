@@ -37,6 +37,8 @@ export function PlanFinder() {
   const [dismissed, setDismissed] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const fieldsetRef = useRef<HTMLFieldSetElement>(null);
+  const touched = useRef(false);
 
   const steps: {
     key: keyof Answers;
@@ -111,7 +113,15 @@ export function PlanFinder() {
     };
   }, [showBar]);
 
+  // Keep keyboard focus inside the finder when the next question replaces the last.
+  useEffect(() => {
+    if (touched.current && step < 3) {
+      fieldsetRef.current?.querySelector("button")?.focus();
+    }
+  }, [step]);
+
   function choose(key: keyof Answers, value: string) {
+    touched.current = true;
     setPicked((prev) => ({ ...prev, [key]: value }));
     setDismissed(false);
     if (step < steps.length - 1) {
@@ -129,9 +139,8 @@ export function PlanFinder() {
 
   const savings = result ? annualSavings(result.plan) : 0;
   const price = result ? planPrice(result.plan, billing) : 0;
-  const summary = result
-    ? `${result.product.name} + ${result.plan.name}, ${formatUsd(price)}/${billing === "annual" ? "year" : "month"}`
-    : "";
+  const period = billing === "annual" ? "year" : "month";
+  const priceLabel = price === 0 ? "Free" : `${formatUsd(price)}/${period}`;
   const current = steps[step];
 
   return (
@@ -148,7 +157,7 @@ export function PlanFinder() {
 
       <div className="mt-6" aria-live="polite">
         {current ? (
-          <fieldset className="min-w-0">
+          <fieldset ref={fieldsetRef} className="min-w-0">
             <legend className="mb-3 text-lg font-semibold">
               <span className="mr-2 text-sm font-medium text-muted-foreground">
                 {step + 1} of {steps.length}
@@ -162,7 +171,7 @@ export function PlanFinder() {
                   type="button"
                   aria-pressed={picked[current.key] === o.value}
                   onClick={() => choose(current.key, o.value)}
-                  className="flex min-h-14 flex-col items-start justify-center rounded-xl border-2 border-border bg-background px-4 py-3 text-left font-semibold outline-none transition-colors hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:border-primary aria-pressed:bg-secondary"
+                  className="flex min-h-14 flex-col items-start justify-center rounded-xl border-2 border-border bg-background px-4 py-3 text-left font-semibold outline-none transition-colors hover:border-primary focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-pressed:border-primary aria-pressed:bg-secondary"
                 >
                   {o.label}
                   {o.hint && (
@@ -178,7 +187,7 @@ export function PlanFinder() {
                 type="button"
                 variant="ghost"
                 onClick={() => setStep(step - 1)}
-                className="mt-3"
+                className="mt-3 h-11"
               >
                 Back
               </Button>
@@ -200,7 +209,7 @@ export function PlanFinder() {
               className="mx-auto h-auto w-40"
             />
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-semibold tracking-widest text-primary uppercase">
+              <p className="text-sm font-semibold tracking-widest text-foreground uppercase">
                 Your match
               </p>
               <p className="text-2xl font-bold">
@@ -232,9 +241,9 @@ export function PlanFinder() {
                         aria-pressed={billing === b}
                         onClick={() => setBilling(b)}
                         className={cn(
-                          "min-h-10 rounded-md px-4 text-sm font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                          "min-h-11 rounded-md px-4 text-sm font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                           billing === b
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-foreground text-background"
                             : "text-foreground hover:bg-secondary",
                         )}
                       >
@@ -243,21 +252,25 @@ export function PlanFinder() {
                     ))}
                   </div>
                   {savings > 0 && (
-                    <Badge>Save {formatUsd(savings)} a year</Badge>
+                    <Badge className="bg-night text-sand">
+                      Save {formatUsd(savings)} a year
+                    </Badge>
                   )}
                 </div>
               )}
               <p className="font-heading text-3xl font-bold">
-                {formatUsd(price)}
-                <span className="text-base font-normal text-muted-foreground">
-                  /{billing === "annual" ? "year" : "month"}
-                </span>
+                {price === 0 ? "Free" : formatUsd(price)}
+                {price > 0 && (
+                  <span className="text-base font-normal text-muted-foreground">
+                    /{period}
+                  </span>
+                )}
               </p>
               <Button
                 type="button"
                 variant="outline"
                 onClick={restart}
-                className="self-start"
+                className="h-11 self-start"
               >
                 Start over
               </Button>
@@ -275,8 +288,11 @@ export function PlanFinder() {
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:px-6">
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold">
-              {summary}
+            <p className="flex min-w-0 flex-1 items-baseline gap-2 text-sm font-semibold">
+              <span className="min-w-0 truncate">
+                {result.product.name} + {result.plan.name}
+              </span>
+              <span className="shrink-0">{priceLabel}</span>
             </p>
             <Button
               type="button"
@@ -286,7 +302,7 @@ export function PlanFinder() {
                 el?.scrollIntoView({ behavior: "smooth", block: "center" });
                 resultRef.current?.focus({ preventScroll: true });
               }}
-              className="min-h-10"
+              className="min-h-11"
             >
               View plan
             </Button>
@@ -294,7 +310,7 @@ export function PlanFinder() {
               type="button"
               aria-label="Dismiss summary"
               onClick={() => setDismissed(true)}
-              className="grid size-10 place-items-center rounded-md text-sand outline-none hover:bg-sand/10 focus-visible:ring-3 focus-visible:ring-hardhat/60"
+              className="grid size-11 place-items-center rounded-md text-sand outline-none hover:bg-sand/10 focus-visible:ring-3 focus-visible:ring-hardhat/60"
             >
               <span aria-hidden="true">&times;</span>
             </button>

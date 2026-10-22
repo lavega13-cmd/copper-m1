@@ -76,10 +76,10 @@ export function VoiceDemo() {
     timers.current.push(setTimeout(fn, ms));
   };
 
-  const playReply = useCallback(() => {
+  const playReply = useCallback((message = "") => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
-    setNote("");
+    setNote(message);
     setPhase("reply");
     timers.current.push(setTimeout(() => setPhase("done"), REPLY_MS));
   }, []);
@@ -109,8 +109,7 @@ export function VoiceDemo() {
       rec.onerror = () => {
         if (heard) return;
         heard = true;
-        setNote("Microphone unavailable, so here is the tap version.");
-        playReply();
+        playReply("Microphone unavailable, so here is the tap version.");
       };
       rec.onend = () => {
         if (!heard) setPhase((p) => (p === "listening" ? "idle" : p));
@@ -145,13 +144,14 @@ export function VoiceDemo() {
     phase === "listening"
       ? "Listening. Say “Hey Copper”."
       : phase === "reply"
-        ? "Copper heard you."
+        ? note || "Copper heard you."
         : note;
 
   return (
     <div
       id="concierge-voice"
       data-testid="concierge-voice"
+      data-wave={phase === "idle" || phase === "done" ? "rest" : phase}
       className="flex w-full flex-col items-start gap-4"
     >
       <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
@@ -184,11 +184,7 @@ export function VoiceDemo() {
         )}
       </div>
 
-      <div
-        data-wave={phase === "idle" || phase === "done" ? "rest" : phase}
-        aria-hidden="true"
-        className="flex h-10 items-center gap-1"
-      >
+      <div aria-hidden="true" className="flex h-10 items-center gap-1">
         {BARS.map((b, i) => (
           <span
             key={i}
@@ -221,7 +217,7 @@ export function VoiceDemo() {
           </p>
           <a
             href="#plan-finder"
-            className="mt-2 inline-block rounded-md py-1 text-sm font-semibold text-hardhat underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-hardhat/60"
+            className="mt-2 inline-flex min-h-11 items-center rounded-md py-1 text-sm font-semibold text-hardhat underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-hardhat/60"
           >
             Find my Copper
           </a>

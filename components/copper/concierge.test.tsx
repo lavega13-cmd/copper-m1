@@ -80,6 +80,9 @@ describe("VoiceDemo with speech support", () => {
     fireEvent.click(screen.getByRole("button", { name: /say .hey copper/i }));
     act(() => made[0].onerror());
     expect(screen.getByText(/I'm Copper/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /microphone unavailable/i,
+    );
   });
 });
 
@@ -116,6 +119,8 @@ describe("PlanFinder", () => {
     expect(result).toHaveTextContent("Copper Home + Free");
     expect(result).toHaveTextContent(/add copper plus/i);
     expect(screen.queryByRole("button", { name: "Monthly" })).toBeNull();
+    expect(result).toHaveTextContent("Free");
+    expect(result).not.toHaveTextContent("$0");
   });
 
   it("can start over and go back", () => {
