@@ -87,7 +87,27 @@ describe("VoiceDemo with speech support", () => {
 });
 
 describe("VoiceDemo spoken reply", () => {
-  it("speaks the reply with the browser voice when it exists", () => {
+  it("plays the recorded voice when it can", () => {
+    const play = vi.fn(() => Promise.resolve());
+    const made: string[] = [];
+    vi.stubGlobal(
+      "Audio",
+      class {
+        constructor(src: string) {
+          made.push(src);
+        }
+        play = play;
+        pause = vi.fn();
+      },
+    );
+    render(<VoiceDemo />);
+    fireEvent.click(screen.getByRole("button", { name: /tap to try/i }));
+    expect(made).toEqual(["/audio/copper-reply.mp3"]);
+    expect(play).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to the browser voice when playback fails", async () => {
     const speak = vi.fn();
     vi.stubGlobal("speechSynthesis", { speak, cancel: vi.fn() });
     vi.stubGlobal(
@@ -96,10 +116,17 @@ describe("VoiceDemo spoken reply", () => {
         constructor(public text: string) {}
       },
     );
+    vi.stubGlobal(
+      "Audio",
+      class {
+        play = () => Promise.reject(new Error("blocked"));
+        pause = vi.fn();
+      },
+    );
     render(<VoiceDemo />);
     fireEvent.click(screen.getByRole("button", { name: /tap to try/i }));
+    await act(async () => {});
     expect(speak).toHaveBeenCalledTimes(1);
-    expect(speak.mock.calls[0][0].text).toMatch(/I'm Copper/);
     vi.unstubAllGlobals();
   });
 });

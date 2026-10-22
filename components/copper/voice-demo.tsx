@@ -40,17 +40,33 @@ const BARS = [
   { rest: 0.4, fixed: 0.4, dur: "1.1s", delay: "0s", mid: false },
 ];
 
-/** Speak the reply with the browser's built-in voice, where it exists. */
-function speak(text: string) {
+let audio: HTMLAudioElement | null = null;
+
+/** Browser voice, used only if the recorded voice cannot play. */
+function speakWithBrowser(text: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-US";
-    u.rate = 1;
     window.speechSynthesis.speak(u);
   } catch {
     /* no voice available: the text reply still shows */
+  }
+}
+
+/** Play Copper's recorded voice; fall back to the browser voice. */
+function speak(text: string) {
+  if (typeof window === "undefined") return;
+  try {
+    audio?.pause();
+    audio = new Audio("/audio/copper-reply.mp3");
+    const playing = audio.play();
+    if (playing && typeof playing.catch === "function") {
+      playing.catch(() => speakWithBrowser(text));
+    }
+  } catch {
+    speakWithBrowser(text);
   }
 }
 
@@ -81,7 +97,7 @@ export function VoiceDemo() {
     return () => {
       pending.forEach(clearTimeout);
       try {
-        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+        audio?.pause();
         recRef.current?.stop();
       } catch {
         /* already stopped */
