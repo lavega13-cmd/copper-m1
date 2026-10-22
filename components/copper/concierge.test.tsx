@@ -86,6 +86,24 @@ describe("VoiceDemo with speech support", () => {
   });
 });
 
+describe("VoiceDemo spoken reply", () => {
+  it("speaks the reply with the browser voice when it exists", () => {
+    const speak = vi.fn();
+    vi.stubGlobal("speechSynthesis", { speak, cancel: vi.fn() });
+    vi.stubGlobal(
+      "SpeechSynthesisUtterance",
+      class {
+        constructor(public text: string) {}
+      },
+    );
+    render(<VoiceDemo />);
+    fireEvent.click(screen.getByRole("button", { name: /tap to try/i }));
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(speak.mock.calls[0][0].text).toMatch(/I'm Copper/);
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("PlanFinder", () => {
   const tap = (name: RegExp) =>
     fireEvent.click(screen.getByRole("button", { name }));

@@ -28,6 +28,8 @@ type Recognition = {
 };
 type RecognitionCtor = new () => Recognition;
 
+const REPLY_TEXT =
+  "Hi, I'm Copper. Tell me what you need, and I'll find your fit.";
 const LISTEN_MS = 10_000;
 const REPLY_MS = 3_500;
 const BARS = [
@@ -37,6 +39,20 @@ const BARS = [
   { rest: 0.3, fixed: 0.7, dur: "1s", delay: "-0.15s", mid: false },
   { rest: 0.4, fixed: 0.4, dur: "1.1s", delay: "0s", mid: false },
 ];
+
+/** Speak the reply with the browser's built-in voice, where it exists. */
+function speak(text: string) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 1;
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* no voice available: the text reply still shows */
+  }
+}
 
 function getRecognitionCtor(): RecognitionCtor | null {
   if (typeof window === "undefined") return null;
@@ -65,6 +81,7 @@ export function VoiceDemo() {
     return () => {
       pending.forEach(clearTimeout);
       try {
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
         recRef.current?.stop();
       } catch {
         /* already stopped */
@@ -81,6 +98,7 @@ export function VoiceDemo() {
     timers.current = [];
     setNote(message);
     setPhase("reply");
+    speak(REPLY_TEXT);
     timers.current.push(setTimeout(() => setPhase("done"), REPLY_MS));
   }, []);
 
@@ -211,10 +229,7 @@ export function VoiceDemo() {
 
       {phase === "reply" || phase === "done" ? (
         <div className="max-w-md rounded-xl border border-copper/50 bg-sand/10 p-4 text-sand">
-          <p className="font-semibold text-white">
-            Hi, I&apos;m Copper. Tell me what you need, and I&apos;ll find your
-            fit.
-          </p>
+          <p className="font-semibold text-white">{REPLY_TEXT}</p>
           <a
             href="#plan-finder"
             className="mt-2 inline-flex min-h-11 items-center rounded-md py-1 text-sm font-semibold text-hardhat underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-hardhat/60"
