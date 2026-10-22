@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { VoiceDemo } from "@/components/copper/voice-demo";
 import { getProducts } from "@/lib/copper/catalog";
 
 // Display copy for the hero cutouts, keyed by product id.
@@ -48,6 +49,7 @@ export function Hero() {
           >
             <a href="#products">See products</a>
           </Button>
+          <VoiceDemo />
         </div>
 
         <div className="relative mx-auto aspect-square w-full max-w-md md:max-w-none">
