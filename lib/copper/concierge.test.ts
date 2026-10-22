@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   annualSavings,
   hasWakePhrase,
+  parseIntent,
   planPrice,
   recommend,
 } from "@/lib/copper/concierge";
@@ -90,5 +91,21 @@ describe("pricing helpers", () => {
     );
     expect(annualSavings(plus)).toBeGreaterThan(0);
     expect(annualSavings(free)).toBe(0);
+  });
+});
+
+describe("parseIntent", () => {
+  it("hears home and meeting requests", () => {
+    expect(parseIntent("hey copper I need a speaker for my home")).toBe(
+      "copper-home",
+    );
+    expect(parseIntent("hey copper something for my meetings")).toBe(
+      "copper-notes",
+    );
+    expect(parseIntent("I need to record my lecture")).toBe("copper-notes");
+  });
+  it("returns null for nothing or a mix", () => {
+    expect(parseIntent("hey copper")).toBeNull();
+    expect(parseIntent("my home and my meetings")).toBeNull();
   });
 });

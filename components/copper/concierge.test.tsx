@@ -56,8 +56,12 @@ describe("VoiceDemo with speech support", () => {
     render(<VoiceDemo />);
     fireEvent.click(screen.getByRole("button", { name: /say .hey copper/i }));
     expect(screen.getByRole("status")).toHaveTextContent(/listening/i);
+    vi.useFakeTimers();
     act(() => {
       made[0].onresult({ results: [[{ transcript: "hey copper" }]] });
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
     });
     expect(screen.getByText(/I'm Copper/)).toBeInTheDocument();
   });
@@ -128,6 +132,61 @@ describe("VoiceDemo spoken reply", () => {
     await act(async () => {});
     expect(speak).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("Copper commands", () => {
+  it("jumps the plan finder to meetings when asked by voice", () => {
+    const made: { onresult: (e: unknown) => void }[] = [];
+    class Fake {
+      onresult: (e: unknown) => void = () => {};
+      onerror = null;
+      onend = null;
+      start = vi.fn();
+      stop = vi.fn();
+      constructor() {
+        made.push(this);
+      }
+    }
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition =
+      Fake;
+    render(
+      <>
+        <VoiceDemo />
+        <PlanFinder />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /say .hey copper/i }));
+    vi.useFakeTimers();
+    act(() => {
+      made[0].onresult({
+        results: [
+          [{ transcript: "hey copper I need something for my meetings" }],
+        ],
+      });
+    });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(screen.getByText(/Copper Notes is the one/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/how long should copper remember/i),
+    ).toBeInTheDocument();
+  });
+
+  it("offers the same two commands as buttons", () => {
+    render(
+      <>
+        <VoiceDemo />
+        <PlanFinder />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /tap to try/i }));
+    fireEvent.click(screen.getByRole("button", { name: /for my home/i }));
+    expect(screen.getByText(/start with Copper Home/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/how long should copper remember/i),
+    ).toBeInTheDocument();
   });
 });
 

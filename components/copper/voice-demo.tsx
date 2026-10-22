@@ -9,7 +9,11 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { hasWakePhrase } from "@/lib/copper/concierge";
+import {
+  hasWakePhrase,
+  parseIntent,
+  type Purpose,
+} from "@/lib/copper/concierge";
 
 type Phase = "idle" | "listening" | "reply" | "done";
 
@@ -28,8 +32,21 @@ type Recognition = {
 };
 type RecognitionCtor = new () => Recognition;
 
-const REPLY_TEXT =
-  "Hi, I'm Copper. Tell me what you need, and I'll find your fit.";
+const REPLIES = {
+  default: {
+    text: "Hi, I'm Copper. Tell me what you need, and I'll find your fit.",
+    src: "/audio/copper-reply.mp3",
+  },
+  "copper-home": {
+    text: "Got it. For your home, I'd start with Copper Home. Let's find your plan.",
+    src: "/audio/copper-home.mp3",
+  },
+  "copper-notes": {
+    text: "Got it. For your meetings, Copper Notes is the one. Let's find your plan.",
+    src: "/audio/copper-notes.mp3",
+  },
+} as const;
+const COMMAND_WAIT_MS = 2500;
 const LISTEN_MS = 10_000;
 const REPLY_MS = 3_500;
 const BARS = [
@@ -56,11 +73,11 @@ function speakWithBrowser(text: string) {
 }
 
 /** Play Copper's recorded voice; fall back to the browser voice. */
-function speak(text: string) {
+function speak(text: string, src: string) {
   if (typeof window === "undefined") return;
   try {
     audio?.pause();
-    audio = new Audio("/audio/copper-reply.mp3");
+    audio = new Audio(src);
     const playing = audio.play();
     if (playing && typeof playing.catch === "function") {
       playing.catch(() => speakWithBrowser(text));
@@ -89,6 +106,7 @@ export function VoiceDemo() {
     () => null,
   );
   const [note, setNote] = useState("");
+  const [intent, setIntent] = useState<Purpose | null>(null);
   const recRef = useRef<Recognition | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -109,14 +127,27 @@ export function VoiceDemo() {
     timers.current.push(setTimeout(fn, ms));
   };
 
-  const playReply = useCallback((message = "") => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-    setNote(message);
-    setPhase("reply");
-    speak(REPLY_TEXT);
-    timers.current.push(setTimeout(() => setPhase("done"), REPLY_MS));
-  }, []);
+  const playReply = useCallback(
+    (message = "", asked: Purpose | null = null) => {
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
+      setNote(message);
+      setIntent(asked);
+      setPhase("reply");
+      const reply = REPLIES[asked ?? "default"];
+      speak(reply.text, reply.src);
+      if (asked) {
+        window.dispatchEvent(
+          new CustomEvent("copper:purpose", { detail: asked }),
+        );
+        document
+          .getElementById("plan-finder")
+          ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      }
+      timers.current.push(setTimeout(() => setPhase("done"), REPLY_MS));
+    },
+    [],
+  );
 
   function start() {
     const Ctor = getRecognitionCtor();
@@ -130,14 +161,23 @@ export function VoiceDemo() {
       rec.interimResults = true;
       rec.lang = "en-US";
       let heard = false;
+      let latest = "";
       rec.onresult = (e) => {
         const text = Array.from(e.results)
           .map((r) => r[0]?.transcript ?? "")
           .join(" ");
+        latest = text;
         if (!heard && hasWakePhrase(text)) {
           heard = true;
-          rec.stop();
-          playReply();
+          // Keep listening briefly so "Hey Copper, I need ..." is heard in full.
+          later(() => {
+            try {
+              rec.stop();
+            } catch {
+              /* already stopped */
+            }
+            playReply("", parseIntent(latest));
+          }, COMMAND_WAIT_MS);
         }
       };
       rec.onerror = () => {
@@ -245,19 +285,40 @@ export function VoiceDemo() {
 
       {phase === "reply" || phase === "done" ? (
         <div className="max-w-md rounded-xl border border-copper/50 bg-sand/10 p-4 text-sand">
-          <p className="font-semibold text-white">{REPLY_TEXT}</p>
+          <p className="font-semibold text-white">
+            {REPLIES[intent ?? "default"].text}
+          </p>
           <a
             href="#plan-finder"
             className="mt-2 inline-flex min-h-11 items-center rounded-md py-1 text-sm font-semibold text-hardhat underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-hardhat/60"
           >
             Find my Copper
           </a>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(
+              [
+                ["copper-home", "For my home"],
+                ["copper-notes", "For my meetings"],
+              ] as const
+            ).map(([id, label]) => (
+              <Button
+                key={id}
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => playReply("", id)}
+                className="h-11 border-sand/40 bg-transparent text-sand hover:bg-sand/10 hover:text-white"
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
         </div>
       ) : null}
 
       <p className="max-w-md text-xs text-sand/65">
         {live
-          ? "Demo only. Your browser may send what you say to its own speech service while it listens. Listening stops after 10 seconds."
+          ? "Demo only. Try: \u201cHey Copper, I need a speaker for my home\u201d or \u201cHey Copper, I need something for my meetings.\u201d Your browser may send what you say to its own speech service while it listens. Listening stops after 10 seconds."
           : "Demo only. This button plays a scripted reply and never uses your microphone."}
       </p>
     </div>

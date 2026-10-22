@@ -17,6 +17,7 @@ import {
   recommend,
   type Answers,
   type Billing,
+  type Purpose,
 } from "@/lib/copper/concierge";
 import { cn } from "@/lib/utils";
 
@@ -112,6 +113,18 @@ export function PlanFinder() {
       document.body.style.paddingBottom = "";
     };
   }, [showBar]);
+
+  // Copper's voice can pick the first answer ("a speaker for my home").
+  useEffect(() => {
+    const onPurpose = (e: Event) => {
+      const purpose = (e as CustomEvent<Purpose>).detail;
+      setPicked({ purpose });
+      setStep(1);
+      setDismissed(false);
+    };
+    window.addEventListener("copper:purpose", onPurpose);
+    return () => window.removeEventListener("copper:purpose", onPurpose);
+  }, []);
 
   // Keep keyboard focus inside the finder when the next question replaces the last.
   useEffect(() => {
@@ -299,7 +312,7 @@ export function PlanFinder() {
               size="sm"
               onClick={() => {
                 const el = rootRef.current;
-                el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
                 resultRef.current?.focus({ preventScroll: true });
               }}
               className="min-h-11"

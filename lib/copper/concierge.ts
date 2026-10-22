@@ -29,6 +29,18 @@ export function hasWakePhrase(transcript: string): boolean {
   return /\b(hey|hay|hi|hello)\s+(copper|copper's|cooper|coppa)\b/.test(text);
 }
 
+/** Reads a spoken request ("a speaker for my home") as a purpose, or null. */
+export function parseIntent(transcript: string): Purpose | null {
+  const text = transcript.toLowerCase();
+  const home = /\b(home|house|speaker|kitchen|family|living room)\b/.test(text);
+  const notes =
+    /\b(meeting|meetings|class|lecture|lectures|notes|record|recorder|work)\b/.test(
+      text,
+    );
+  if (home === notes) return null;
+  return home ? "copper-home" : "copper-notes";
+}
+
 /**
  * Product follows the purpose. Plus is picked when the budget allows it. A
  * long-memory wish on a device-only budget stays Free, and `stretched` tells
