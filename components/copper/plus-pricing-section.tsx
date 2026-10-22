@@ -1,4 +1,5 @@
 import { CheckIcon, XIcon } from "lucide-react";
+import { PlanFinder } from "@/components/copper/plan-finder";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,8 @@ export function PlusPricingSection() {
             longer memory, unlimited Notes and refined answers.
           </p>
         </div>
+
+        <PlanFinder />
 
         <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-2">
           {plans.map((plan) => {
