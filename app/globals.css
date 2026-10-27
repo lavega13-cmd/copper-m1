@@ -203,6 +203,11 @@
     animation: concierge-ring 1.6s ease-out infinite;
   }
 }
+/* The part of the page Copper just answered with, outlined for a moment. */
+[data-concierge-focus] {
+  outline: 3px solid var(--color-hardhat);
+  outline-offset: -4px;
+}
 @media (prefers-reduced-motion: reduce) {
   [data-wave="listening"] .concierge-bar,
   [data-wave="reply"] .concierge-bar {

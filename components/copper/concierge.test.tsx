@@ -244,3 +244,27 @@ describe("PlanFinder", () => {
     expect(screen.queryByTestId("plan-summary-bar")).toBeNull();
   });
 });
+
+describe("VoiceDemo listening timeout", () => {
+  it("frees the mic button after 10 seconds even if the browser never ends", () => {
+    class Fake {
+      onresult = null;
+      onerror = null;
+      onend = null;
+      start = vi.fn();
+      stop = vi.fn();
+    }
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition =
+      Fake;
+    vi.useFakeTimers();
+    render(<VoiceDemo />);
+    const button = screen.getByRole("button", { name: /say .hey copper/i });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    act(() => {
+      vi.advanceTimersByTime(10_500);
+    });
+    expect(button).toBeEnabled();
+    expect(screen.getByRole("status")).toHaveTextContent(/did not catch it/i);
+  });
+});

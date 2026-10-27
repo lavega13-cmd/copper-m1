@@ -45,7 +45,7 @@ export function ProductsSection() {
               key={product.id}
               data-testid="product-card"
               data-product={product.id}
-              className="h-full gap-0 py-0 shadow-sm"
+              className="h-full scroll-mt-20 gap-0 py-0 shadow-sm transition-shadow"
             >
               <div className="bg-secondary px-6 py-6">
                 <Image

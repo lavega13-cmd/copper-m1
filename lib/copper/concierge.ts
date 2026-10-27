@@ -34,11 +34,60 @@ export function parseIntent(transcript: string): Purpose | null {
   const text = transcript.toLowerCase();
   const home = /\b(home|house|speaker|kitchen|family|living room)\b/.test(text);
   const notes =
-    /\b(meeting|meetings|class|lecture|lectures|notes|record|recorder|work)\b/.test(
+    /\b(meeting|meetings|class|lecture|lectures|notes|record|recorder|work|office|job)\b/.test(
       text,
     );
   if (home === notes) return null;
   return home ? "copper-home" : "copper-notes";
+}
+
+/** What a spoken request is about, and so which part of the page answers it. */
+export type Topic =
+  "copper-home" | "copper-notes" | "plus" | "privacy" | "showcase" | "products";
+
+export type Command = {
+  topic: Topic;
+  /** Set when the request names one product, so the plan finder can preselect it. */
+  purpose: Purpose | null;
+};
+
+/**
+ * Where each answer lives on the page, as a CSS selector. Products point at
+ * their own card; everything else points at its section id.
+ */
+export const TOPIC_TARGETS: Record<Topic, string> = {
+  "copper-home": '[data-testid="product-card"][data-product="copper-home"]',
+  "copper-notes": '[data-testid="product-card"][data-product="copper-notes"]',
+  plus: "#plus",
+  privacy: "#privacy",
+  showcase: "#showcase",
+  products: "#products",
+};
+
+const PRIVACY =
+  /\b(privacy|private|secure|security|safe|data|spy|spying|delete)\b/;
+const PLANS =
+  /\b(plus|plan|plans|price|prices|pricing|cost|costs|subscription|subscribe|monthly|annual|yearly|how much)\b/;
+const SHOWCASE =
+  /\b(photo|photos|picture|pictures|in action|show me|showcase|look like|looks like)\b/;
+const PRODUCTS =
+  /\b(products|devices|everything|what do you (sell|make|have))\b/;
+
+/**
+ * Reads a whole spoken request ("Hey Copper, is my data private?") as a page
+ * topic, or null when nothing in it maps to a section. Privacy and plan
+ * questions win over a product mention, because they ask something more
+ * specific than the product itself.
+ */
+export function parseCommand(transcript: string): Command | null {
+  const text = transcript.toLowerCase();
+  const purpose = parseIntent(text);
+  if (PRIVACY.test(text)) return { topic: "privacy", purpose };
+  if (PLANS.test(text)) return { topic: "plus", purpose };
+  if (purpose) return { topic: purpose, purpose };
+  if (SHOWCASE.test(text)) return { topic: "showcase", purpose: null };
+  if (PRODUCTS.test(text)) return { topic: "products", purpose: null };
+  return null;
 }
 
 /**

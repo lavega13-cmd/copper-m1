@@ -11,8 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   hasWakePhrase,
-  parseIntent,
-  type Purpose,
+  parseCommand,
+  TOPIC_TARGETS,
+  type Command,
+  type Topic,
 } from "@/lib/copper/concierge";
 
 type Phase = "idle" | "listening" | "reply" | "done";
@@ -32,7 +34,8 @@ type Recognition = {
 };
 type RecognitionCtor = new () => Recognition;
 
-const REPLIES = {
+// Replies with a recorded voice play it; the rest use the browser voice.
+const REPLIES: Record<Topic | "default", { text: string; src?: string }> = {
   default: {
     text: "Hi, I'm Copper. Tell me what you need, and I'll find your fit.",
     src: "/audio/copper-reply.mp3",
@@ -45,7 +48,28 @@ const REPLIES = {
     text: "Got it. For your meetings, Copper Notes is the one. Let's find your plan.",
     src: "/audio/copper-notes.mp3",
   },
-} as const;
+  plus: {
+    text: "Here are the plans. Free to start, or Copper Plus for a longer memory and unlimited Notes.",
+  },
+  privacy: {
+    text: "Here is exactly how Copper handles what you say.",
+  },
+  showcase: {
+    text: "Here is Copper at home and at work.",
+  },
+  products: {
+    text: "Meet the Copper family: Copper Home and Copper Notes.",
+  },
+};
+
+// The tap versions of the voice commands, in the order they show.
+const COMMANDS: [Command, string][] = [
+  [{ topic: "copper-home", purpose: "copper-home" }, "For my home"],
+  [{ topic: "copper-notes", purpose: "copper-notes" }, "For my meetings"],
+  [{ topic: "plus", purpose: null }, "Show me the plans"],
+  [{ topic: "privacy", purpose: null }, "Is it private?"],
+];
+const HIGHLIGHT_MS = 2_400;
 const COMMAND_WAIT_MS = 2500;
 const LISTEN_MS = 10_000;
 const REPLY_MS = 3_500;
@@ -73,8 +97,12 @@ function speakWithBrowser(text: string) {
 }
 
 /** Play Copper's recorded voice; fall back to the browser voice. */
-function speak(text: string, src: string) {
+function speak(text: string, src?: string) {
   if (typeof window === "undefined") return;
+  if (!src) {
+    speakWithBrowser(text);
+    return;
+  }
   try {
     audio?.pause();
     audio = new Audio(src);
@@ -85,6 +113,31 @@ function speak(text: string, src: string) {
   } catch {
     speakWithBrowser(text);
   }
+}
+
+/**
+ * Scroll the part of the page that answers `topic` to the top of the screen
+ * (below the sticky header, via each target's scroll margin) and outline it
+ * briefly. Call it only after React has rendered the reply, or the reply card
+ * growing above would push the target out of place mid-scroll.
+ */
+export function scrollToTopic(topic: Topic): Element | null {
+  if (typeof document === "undefined") return null;
+  const target = document.querySelector(TOPIC_TARGETS[topic]);
+  if (!target) return null;
+  const reduce =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView?.({
+    behavior: reduce ? "auto" : "smooth",
+    block: "start",
+  });
+  target.setAttribute("data-concierge-focus", "");
+  setTimeout(
+    () => target.removeAttribute("data-concierge-focus"),
+    HIGHLIGHT_MS,
+  );
+  return target;
 }
 
 function getRecognitionCtor(): RecognitionCtor | null {
@@ -106,7 +159,9 @@ export function VoiceDemo() {
     () => null,
   );
   const [note, setNote] = useState("");
-  const [intent, setIntent] = useState<Purpose | null>(null);
+  const [topic, setTopic] = useState<Topic | null>(null);
+  // Bumped on every command so asking the same thing twice scrolls again.
+  const [jump, setJump] = useState<{ topic: Topic; n: number } | null>(null);
   const recRef = useRef<Recognition | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -123,31 +178,49 @@ export function VoiceDemo() {
     };
   }, []);
 
+  // Scroll only after the reply has rendered: the reply card above the target
+  // changes the page height, so scrolling inside the click lands short.
+  useEffect(() => {
+    if (jump) scrollToTopic(jump.topic);
+  }, [jump]);
+
   const later = (fn: () => void, ms: number) => {
     timers.current.push(setTimeout(fn, ms));
   };
 
   const playReply = useCallback(
-    (message = "", asked: Purpose | null = null) => {
+    (message = "", command: Command | null = null) => {
       timers.current.forEach(clearTimeout);
       timers.current = [];
       setNote(message);
-      setIntent(asked);
+      setTopic(command?.topic ?? null);
       setPhase("reply");
-      const reply = REPLIES[asked ?? "default"];
+      const reply = REPLIES[command?.topic ?? "default"];
       speak(reply.text, reply.src);
-      if (asked) {
+      if (command?.purpose) {
         window.dispatchEvent(
-          new CustomEvent("copper:purpose", { detail: asked }),
+          new CustomEvent("copper:purpose", { detail: command.purpose }),
         );
-        document
-          .getElementById("plan-finder")
-          ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      }
+      if (command) {
+        setJump((prev) => ({ topic: command.topic, n: (prev?.n ?? 0) + 1 }));
       }
       timers.current.push(setTimeout(() => setPhase("done"), REPLY_MS));
     },
     [],
   );
+
+  function reset() {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    try {
+      audio?.pause();
+    } catch {
+      /* nothing playing */
+    }
+    setNote("");
+    setPhase("idle");
+  }
 
   function start() {
     const Ctor = getRecognitionCtor();
@@ -176,7 +249,7 @@ export function VoiceDemo() {
             } catch {
               /* already stopped */
             }
-            playReply("", parseIntent(latest));
+            playReply("", parseCommand(latest));
           }, COMMAND_WAIT_MS);
         }
       };
@@ -200,6 +273,8 @@ export function VoiceDemo() {
             /* already stopped */
           }
           setNote("Did not catch it. Try again, or tap below.");
+          // Do not wait on onend: some browsers never fire it after stop().
+          setPhase((p) => (p === "listening" ? "idle" : p));
         }
       }, LISTEN_MS);
     } catch {
@@ -246,16 +321,6 @@ export function VoiceDemo() {
             {label}
           </Button>
         </div>
-        {phase === "done" && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setPhase("idle")}
-            className="h-11 text-sand hover:bg-sand/10 hover:text-white"
-          >
-            Try again
-          </Button>
-        )}
       </div>
 
       <div aria-hidden="true" className="flex h-10 items-center gap-1">
@@ -284,9 +349,12 @@ export function VoiceDemo() {
       </p>
 
       {phase === "reply" || phase === "done" ? (
-        <div className="max-w-md rounded-xl border border-copper/50 bg-sand/10 p-4 text-sand">
+        <div
+          data-testid="concierge-reply"
+          className="max-w-md rounded-xl border border-copper/50 bg-sand/10 p-4 text-sand"
+        >
           <p className="font-semibold text-white">
-            {REPLIES[intent ?? "default"].text}
+            {REPLIES[topic ?? "default"].text}
           </p>
           <a
             href="#plan-finder"
@@ -295,30 +363,35 @@ export function VoiceDemo() {
             Find my Copper
           </a>
           <div className="mt-2 flex flex-wrap gap-2">
-            {(
-              [
-                ["copper-home", "For my home"],
-                ["copper-notes", "For my meetings"],
-              ] as const
-            ).map(([id, label]) => (
+            {COMMANDS.map(([command, label]) => (
               <Button
-                key={id}
+                key={command.topic}
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => playReply("", id)}
+                onClick={() => playReply("", command)}
                 className="h-11 border-sand/40 bg-transparent text-sand hover:bg-sand/10 hover:text-white"
               >
                 {label}
               </Button>
             ))}
           </div>
+          {/* Lives inside the reply card so the hero does not grow after a
+              scroll and push the answer out of place. */}
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={reset}
+            className="mt-2 h-11 px-2 text-sand hover:bg-sand/10 hover:text-white"
+          >
+            Try again
+          </Button>
         </div>
       ) : null}
 
       <p className="max-w-md text-xs text-sand/65">
         {live
-          ? "Demo only. Try: \u201cHey Copper, I need a speaker for my home\u201d or \u201cHey Copper, I need something for my meetings.\u201d Your browser may send what you say to its own speech service while it listens. Listening stops after 10 seconds."
+          ? "Demo only. Try: \u201cHey Copper, I need a speaker for my home,\u201d \u201c\u2026something for work,\u201d \u201c\u2026show me the plans\u201d or \u201c\u2026is my data private?\u201d Your browser may send what you say to its own speech service while it listens. Listening stops after 10 seconds."
           : "Demo only. This button plays a scripted reply and never uses your microphone."}
       </p>
     </div>
