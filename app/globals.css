@@ -161,3 +161,56 @@
     @apply font-heading;
   }
 }
+
+/* Copper Concierge: sound-wave bars and listening ring. Motion only when allowed. */
+@keyframes concierge-wave {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@keyframes concierge-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+.concierge-bar {
+  transform-origin: center;
+  transform: scaleY(var(--bar-rest, 0.3));
+}
+.concierge-ring {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-wave="listening"] .concierge-bar,
+  [data-wave="reply"] .concierge-bar {
+    animation: concierge-wave var(--bar-dur, 1s) ease-in-out infinite;
+    animation-delay: var(--bar-delay, 0s);
+  }
+  [data-wave="reply"] .concierge-bar {
+    animation-duration: 0.5s;
+  }
+  [data-wave="listening"] .concierge-ring {
+    display: block;
+    animation: concierge-ring 1.6s ease-out infinite;
+  }
+}
+/* The part of the page Copper just answered with, outlined for a moment. */
+[data-concierge-focus] {
+  outline: 3px solid var(--color-hardhat);
+  outline-offset: -4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-wave="listening"] .concierge-bar,
+  [data-wave="reply"] .concierge-bar {
+    transform: scaleY(var(--bar-fixed, 0.6));
+  }
+}
