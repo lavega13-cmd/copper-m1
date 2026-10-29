@@ -34,7 +34,7 @@ type Recognition = {
 };
 type RecognitionCtor = new () => Recognition;
 
-// Replies with a recorded voice play it; the rest use the browser voice.
+// Every reply plays its recorded voice; the browser voice is only a fallback.
 const REPLIES: Record<Topic | "default", { text: string; src?: string }> = {
   default: {
     text: "Hi, I'm Copper. Tell me what you need, and I'll find your fit.",
@@ -50,15 +50,19 @@ const REPLIES: Record<Topic | "default", { text: string; src?: string }> = {
   },
   plus: {
     text: "Here are the plans. Free to start, or Copper Plus for a longer memory and unlimited Notes.",
+    src: "/audio/copper-plus.mp3",
   },
   privacy: {
     text: "Here is exactly how Copper handles what you say.",
+    src: "/audio/copper-privacy.mp3",
   },
   showcase: {
     text: "Here is Copper at home and at work.",
+    src: "/audio/copper-showcase.mp3",
   },
   products: {
     text: "Meet the Copper family: Copper Home and Copper Notes.",
+    src: "/audio/copper-products.mp3",
   },
 };
 
